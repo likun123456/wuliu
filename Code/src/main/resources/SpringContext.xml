@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:p="http://www.springframework.org/schema/p"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:tx="http://www.springframework.org/schema/tx"
+       xmlns:aop="http://www.springframework.org/schema/aop"
+       xmlns:mvc="http://www.springframework.org/schema/mvc"
+       xmlns:task="http://www.springframework.org/schema/task"
+       xmlns:cache="http://www.springframework.org/schema/cache"
+       xmlns:util="http://www.springframework.org/schema/util"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-4.3.xsd
+                    http://www.springframework.org/schema/aop http://www.springframework.org/schema/aop/spring-aop-4.3.xsd
+                    http://www.springframework.org/schema/tx http://www.springframework.org/schema/tx/spring-tx-4.3.xsd
+                    http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context-4.3.xsd
+                    http://www.springframework.org/schema/mvc http://www.springframework.org/schema/mvc/spring-mvc-4.3.xsd
+                    http://www.springframework.org/schema/task http://www.springframework.org/schema/task/spring-task-4.3.xsd
+                    http://www.springframework.org/schema/cache http://www.springframework.org/schema/cache/spring-cache-4.3.xsd
+                    http://www.springframework.org/schema/util http://www.springframework.org/schema/util/spring-util-4.3.xsd">
+    <!-- ApplicationContext -->
+    <bean class="com.kytms.core.utils.SpringUtils"></bean>
+    <!--拦截器扫描器-->
+    <!--<bean id="hiberAspect" class="com.kytms.core.aop.HiberAspect"></bean>-->
+     <!--自动扫描组件-->
+    <context:component-scan base-package="com" />
+    <!-- properties文件解析器 -->
+    <context:property-placeholder location="classpath:db.properties" />
+    <!-- 配置数据源Mysql 本机 -->
+    <bean id="dataSource" destroy-method="close"
+          class="org.apache.commons.dbcp.BasicDataSource">
+        <property name="driverClassName" value="${db.driverClassName}" />
+        <property name="url" value="${db.url}" />
+        <property name="username" value="${db.username}" />
+        <property name="password" value="${db.password}" />
+        <property name="initialSize" value="60" />
+        <!--maxActive: 最大连接数量-->
+        <property name="maxActive" value="300" />
+        <!--minIdle: 最小空闲连接-->
+        <property name="minIdle" value="10"/>
+        <!--maxIdle: 最大空闲连接-->
+        <property name="maxIdle" value="20"/>
+        <!--removeAbandoned: 是否自动回收超时连接-->
+        <property name="removeAbandoned"  value="true"/>
+        <!--removeAbandonedTimeout: 超时时间(以秒数为单位)-->
+        <property name="removeAbandonedTimeout" value="10"/>
+        <!--maxWait: 超时等待时间以毫秒为单位 1000等于60秒-->
+        <property name="maxWait" value="1000" />
+        <!-- 在空闲连接回收器线程运行期间休眠的时间值,以毫秒为单位. -->
+        <property name="timeBetweenEvictionRunsMillis" value="10000"/>
+        <!--  在每次空闲连接回收器线程(如果有)运行时检查的连接数量 -->
+        <property name="numTestsPerEvictionRun" value="10"/>
+        <!-- 1000 * 60 * 30  连接在池中保持空闲而不被空闲连接回收器线程-->
+        <property name="minEvictableIdleTimeMillis" value="10000"/>
+        <property name="poolPreparedStatements" value="true" />
+        <property name="defaultAutoCommit" value="true" />
+    </bean>
+    <bean id="sessionFactory"
+          class="org.springframework.orm.hibernate4.LocalSessionFactoryBean">
+        <!--拦截器-->
+        <property name="entityInterceptor" ref="HiberAspect" />
+        <property name="dataSource" ref="dataSource" />
+        <!-- 注解方式配置 -->
+        <property name="packagesToScan">
+            <list>
+                <value>com.kytms.core.entity</value>
+                <value>com.kytms.out.entity</value>
+            </list>
+        </property>
+        <property name="hibernateProperties">
+            <props>
+                <!--<prop key="hibernate.current_session_context_class">org.springframework.orm.hibernate4.SpringSessionContext</prop>-->
+                <!--<prop key="hibernate.cache.region.factory_class">org.hibernate.cache.ehcache.EhCacheRegionFactory</prop>-->
+                <!--<prop key="hibernate.temp.use_jdbc_metadata_defaults">false</prop>-->
+                <prop key="hibernate.jdbc.fetch_size">100</prop>
+                <prop key="hibernate.jdbc.batch_size">30</prop>
+                <prop key="hibernate.default_batch_fetch_size">16</prop>
+                <prop key="hibernate.dialect">${db.dialect}</prop>
+                <prop key="hibernate.hbm2ddl.auto">update</prop>
+                <prop key="hibernate.show_sql">true</prop>
+                <prop key="hiberante.format_sql">true</prop>
+                <!--<prop key="hibernate.connection.url">jdbc:mysql://localhost:3306/testplan</prop>-->
+                <!--<prop key="hibernate.connection.driver_class">com.mysql.jdbc.Driver</prop>-->
+            </props>
+        </property>
+    </bean>
+
+
+    <bean id="jdbcTemplate" class="org.springframework.jdbc.core.JdbcTemplate">
+        <property name="dataSource" ref="dataSource"></property>
+    </bean>
+    <!--事物拦截-->
+    <bean id="txManager"
+          class="org.springframework.orm.hibernate4.HibernateTransactionManager">
+        <property name="sessionFactory" ref="sessionFactory" />
+    </bean>
+    <tx:advice id="txAdvice" transaction-manager="txManager">
+        <tx:attributes>
+            <tx:method name="save*" propagation="REQUIRED" />
+            <tx:method name="*" propagation="REQUIRED" />
+            <tx:method name="add*" propagation="REQUIRED" />
+            <tx:method name="edit*" propagation="REQUIRED" />
+            <tx:method name="update*" propagation="REQUIRED" />
+            <tx:method name="delete*" propagation="REQUIRED" />
+            <tx:method name="select*" propagation="REQUIRED" />
+            <!-- <tx:method name="*" read-only="true"/> -->
+        </tx:attributes>
+    </tx:advice>
+    <aop:config>
+        <aop:pointcut id="serviceOperation"
+                      expression="(execution(* com.kytms.*.service.Impl.*.*(..)))  || execution(* com.kytms.*.service.impl.*.*(..)))  || (execution(* com.kytms.*.service.impl.*.*(..))) || (execution(* com.kytms.*.service.Impl.*.*(..)))"/>
+        <aop:advisor advice-ref="txAdvice" pointcut-ref="serviceOperation" />
+    </aop:config>
+    <!--AOP修改创建时间，创建人，修改时间，修改人-->
+    <aop:aspectj-autoproxy proxy-target-class="true"/>
+</beans>

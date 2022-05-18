@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd">
+
+
+<!--自定义的Roles Filter-->
+    <!-- 注意：下面如果这样配置：/**/del/**=roles["管理员,总经理"] Shiro 默认表示用户同时具有这两个角色才能访问，但我们往往需要只要满足其中一个即可，这时就需要重写拦截器 -->
+    <!--<bean id="anyRoles" class="com.jetchain.rbac.shiro.CustomRolesAuthorizationFilter" />-->
+    <!-- 配置shiro的过滤器工厂类，id- shiroFilter要和我们在web.xml中配置的过滤器一致 -->
+    <bean id="shiroFilter" class="org.apache.shiro.spring.web.ShiroFilterFactoryBean">
+        <!-- 调用我们配置的权限管理器 -->
+        <property name="securityManager" ref="securityManager"/>
+        <!-- 配置我们的登录请求地址 -->
+        <property name="loginUrl" value="/jsp/login/index.jsp"/>
+        <!-- 配置我们在登录页登录成功后的跳转地址，如果你访问的是非/login.jsp地址，则跳到您访问的地址 -->
+        <!--<property name="successUrl" value="/jsp/home/adminDefault.jsp"/>-->
+        <!-- 如果您请求的资源不再您的权限范围，则跳转到/unauthorized.jsp请求地址 -->
+        <property name="unauthorizedUrl" value="/jsp/error/errorPage.jsp"/>
+        <!-- shiro连接约束配置,在这里使用自定义的动态获取资源类 -->
+        <property name="filterChainDefinitionMap" ref="metaSource" />
+
+        <!--<property name="filterChainDefinitions" value="#\{shiroManager.loadFilterChainDefinitions()\}"/>-->
+
+        <!--自定义过滤器-->
+        <property name="filters">
+            <!--页面过滤器-->
+            <map>
+                <entry key="page">
+                    <bean class="com.kytms.rbac.shiro.PageFilterChainDefinitionsService" />
+                </entry>
+            </map>
+        </property>
+    </bean>
+    <!--自定义配置-->
+    <bean id="metaSource" class="com.kytms.rbac.shiro.ChainDefinitionSectionMetaSource">
+        <!-- 具体配置需要拦截哪些 URL, 以及访问对应的 URL 时使用 Shiro 的什么 Filter 进行拦截.  -->
+        <!-- 这里对路径中包含 del 的请求地址只有拥有“管理员”或“总经理”角色的用户才能访问 -->
+        <property name="filterChainDefinitions">
+            <value>
+                <!-- anon表示此地址不需要任何权限即可访问 -->
+                index.jsp=anon
+                /api/**==anon
+                /login/login.action=anon
+                /jsp/login/index.jsp=anon
+                /jsp/error/errorBrowser.jsp=anon
+                /Content/**==anon
+                /images/**==anon
+                <!-- authc 表示需要认证(登录)才能访问 -->
+                /jsp/home/adminDefault.jsp=authc
+                /** = authc
+                /jsp/**=authc
+                /jsp/**=page
+                <!--/jsp/home/adminDefaultDesktop.jsp=authc-->
+                <!-- roles[user]表示访问此连接需要用户的角色为user -->
+                <!--/user.jsp=roles[user]-->
+                <!--/admin.jsp=roles[admin]-->
+                <!-- perms[user:改]表示访问此连接需要用户拥有“改”的权限才能访问 -->
+                <!--/authPage.jsp=perms[user:改]-->
+                <!--&lt;!&ndash;/**/del/**=anyRoles["管理员,总经理"]&ndash;&gt;-->
+                <!--/logout = logout-->
+                <!--所有的请求(除去配置的静态资源请求或请求地址为anon的请求)都要通过登录验证,如果未登录则跳到/login-->
+                <!-- /** = authc -->
+            </value>
+        </property>
+    </bean>
+    <!-- 配置缓存管理器 -->
+    <bean id="cacheManager" class="org.apache.shiro.cache.ehcache.EhCacheManager">
+        <!-- 指定 ehcache 的配置文件 -->
+        <!-- 这里还没搞明白为什么配置了缓存会启动就报错 -->
+        <property name="cacheManagerConfigFile" value="classpath:ehcache-shiro.xml"/>
+    </bean>
+
+    <!-- 配置进行授权和认证的 Realm -->
+    <bean id="myRealm" class="com.kytms.rbac.shiro.ShiroDbRealm">
+    </bean>
+    <!-- 配置 Shiro 的 SecurityManager Bean. -->
+    <bean id="securityManager" class="org.apache.shiro.web.mgt.DefaultWebSecurityManager">
+        <!--<property name="cacheManager" ref="cacheManager"/>-->
+        <property name="realm" ref="myRealm"/>
+        <property name="sessionMode" value="native"/>
+    </bean>
+    <!-- 配置 Bean 后置处理器: 会自动的调用和 Spring 整合后各个组件的生命周期方法. -->
+    <bean id="lifecycleBeanPostProcessor" class="org.apache.shiro.spring.LifecycleBeanPostProcessor"/>
+
+</beans>
